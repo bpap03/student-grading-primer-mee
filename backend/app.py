@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+
 import db
 
 app = Flask(__name__)
@@ -17,11 +18,15 @@ def get_students():
     Route to fetch all students from the database
     return: Array of student objects
     """
-    # TODO: replace with your implementation. This is a mock response
-    return jsonify([
-        {'course': 'COMP1531', 'id': 1, 'mark': 85, 'name': 'Alice Zhang'},
-        {'course': 'COMP1531', 'id': 2, 'mark': 72, 'name': 'Bob Smith'}
-    ]), 200
+    #If it is empty it will return a blank json file
+    try:
+        allStudentDict = db.get_all_students()
+        return jsonify(allStudentDict), 200
+    except:
+        #If there is an issue witht he data base/ autehnication or smth else it will show an error
+        return jsonify({"error" : "Couldnt't fetch da students"}), 404
+
+    
 
 
 @app.route("/students", methods=["POST"])
@@ -36,8 +41,21 @@ def create_student():
 
     # Getting the request body - replace with your implementation
     student_data = request.json
+    
+    #Remove traniling/ leading white spaces and check not empty
+    name = student_data.get("name" or "").strip()
+    course = student_data.get("course" or "").strip()
+    mark = student_data.get("mark")
 
-    pass
+    if name and course:
+        try:
+            newStudent = db.insert_student(name, course, mark)
+            return newStudent, 200
+        except:
+            return jsonify({"error" : "data valid but unable to insert student"}), 404    
+    
+    return jsonify({"error" : "either name or course was blank"}),404
+
 
 
 @app.route("/students/<int:student_id>", methods=["PUT"])
@@ -49,7 +67,18 @@ def update_student(student_id):
     param mark: The mark the student received (from request body)
     return: The updated student if successful
     """
-    pass  # replace with your implementation
+    #assuming that any int will be valid, inc neg and 0
+
+    student_data = request.json
+    try:
+        student = db.update_student(student_id, student_data.get("name"), student_data.get("course"), student_data.get("mark"))
+    except:
+        return jsonify({"error" : "database was unable to pefrom action"}), 404 
+    
+    if student is None:
+        return jsonify({"error" : "unable to find student by id"}), 404  
+    
+    return student, 200
 
 
 @app.route("/students/<int:student_id>", methods=["DELETE"])
@@ -58,7 +87,22 @@ def delete_student(student_id):
     Route to delete student by id
     return: The deleted student
     """
-    pass  # replace with your implementation
+    
+    try:
+        student = db.get_student_by_id(student_id)
+    except:
+        return ({"error" : "database was unable to pefrom a search action"}), 404
+
+    #Assuming that if you can't search for the student via get get_student_by_id then it won't be able to delte either
+    if student is None:
+        return jsonify({"error" : "unable to find student by id"}), 404
+    
+    try:
+       db.delete_student(student_id)
+       return student,200
+    except:
+        return jsonify({"error" : "database was unable to pefrom action"}), 404
+
 
 
 @app.route("/stats")
@@ -67,7 +111,27 @@ def get_stats():
     Route to show the stats of all student marks 
     return: An object with the stats (count, average, min, max)
     """
-    pass  # replace with your implementation
+    try:
+        students_list = db.get_all_students()
+    except:
+        return jsonify({"error" : "database was unable to get all students"}), 404
+    
+    if len(students_list) == 0:
+        return jsonify({"count": 0, "average": 0, "min": None, "max": None}), 200
+    
+   
+    #edge case no marks entered yet
+    marks = [s["mark"] for s in  students_list if s.get("mark") is not None]
+    if len(marks) == 0:
+        return jsonify({"count": len(students_list), "average": 0, "min": None, "max": None}), 200
+
+    stats = {
+        "count" : len(marks),
+        "average" : sum(marks) / len(marks),
+        "min" : min(marks),
+        "max" : max(marks),
+    }
+    return jsonify(stats), 200
 
 
 @app.route("/")

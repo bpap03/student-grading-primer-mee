@@ -9,12 +9,28 @@ services:
     # Data inside the container is lost on restart unless you persist it with a volume.
     ports:
       - "5432:5432"
+    volumes: 
+    - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - pgdata:/var/lib/postgresql/data
 
   backend:
     # TODO: you will need to add to this
+    #Copy pasted from the connection function and match dbs
+    build: ./backend
+    environment:
+      DB_HOST: db
+      DB_NAME: marksdb
+      DB_USER: marksuser
+      DB_PASSWORD: markspass
+    ports:
+    - "5000:5000"
+
 
   frontend:
+    build: ./frontend
     # TODO: you will need to add to this
+    ports:
+    - "8080:80"
 
   automark:
     build: ./automark
@@ -23,3 +39,6 @@ services:
       - db
     profiles:
       - debug
+
+volumes:
+  pgdata:
